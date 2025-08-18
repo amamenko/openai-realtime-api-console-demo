@@ -10,7 +10,7 @@ export const wandaHealthCheck = async () => {
       `${process.env.ASK_WANDA_API_URL}/health`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
         },
       },
     );

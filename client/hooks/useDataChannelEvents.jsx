@@ -1,0 +1,253 @@
+import { useEffect } from "react";
+
+// Custom hook to manage data channel listeners and events
+export const useDataChannelEvents = ({
+  dataChannel,
+  setIsSessionActive,
+  setEvents,
+  sendClientEvent,
+  toolCallsRef,
+  functionsSystemPrompt,
+  selectedPlaybookId,
+  playbookContent,
+}) => {
+  useEffect(() => {
+    if (!dataChannel) return;
+
+    let transcriptBuffer = "";
+
+    const callServerTool = async (name, args) => {
+      const headers = { "Content-Type": "application/json" };
+      switch (name) {
+        case "get_dictionary_toc": {
+          const response = await fetch("/fc/get_dictionary_toc", {
+            method: "POST",
+            headers,
+          });
+          if (!response.ok) throw new Error("get_dictionary_toc failed");
+          return response.json();
+        }
+        case "get_talentiq_dictionary_section": {
+          const response = await fetch("/fc/get_dictionary_section", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ section_id: args?.section_id || "" }),
+          });
+          if (!response.ok)
+            throw new Error("get_talentiq_dictionary_section failed");
+          return response.json();
+        }
+        case "get_section_content": {
+          const response = await fetch("/fc/get_dictionary_section", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ section_id: args?.id || "" }),
+          });
+          if (!response.ok) throw new Error("get_section_content failed");
+          return response.json();
+        }
+        default:
+          throw new Error(`Unknown tool: ${name}`);
+      }
+    };
+
+    const safeParse = (s) => {
+      try {
+        return JSON.parse(s);
+      } catch {
+        return {};
+      }
+    };
+
+    const handleOpen = () => {
+      setIsSessionActive(true);
+      setEvents([]);
+
+      // a) Configure session
+      sendClientEvent({
+        type: "session.update",
+        session: {
+          modalities: ["audio", "text"],
+          turn_detection: {
+            type: "server_vad",
+            create_response: true,
+            interrupt_response: true,
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 350,
+          },
+        },
+      });
+
+      // b) Register tools
+      const tools = [
+        {
+          type: "function",
+          name: "get_dictionary_toc",
+          description:
+            "Retrieve the table of contents and number of sections in the TalentIQ dictionary.",
+          parameters: { type: "object", properties: {}, required: [] },
+        },
+        {
+          type: "function",
+          name: "get_talentiq_dictionary_section",
+          description:
+            "Retrieve a specific section from the TalentIQ dictionary by section ID.",
+          parameters: {
+            type: "object",
+            properties: {
+              section_id: {
+                type: "string",
+                description: "ID of the dictionary section to retrieve",
+              },
+            },
+            required: ["section_id"],
+          },
+        },
+        {
+          type: "function",
+          name: "get_section_content",
+          description:
+            "Alias of get_talentiq_dictionary_section. Provide { id } which maps to section_id.",
+          parameters: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "Alias of section_id" },
+            },
+            required: ["id"],
+          },
+        },
+      ];
+
+      sendClientEvent({
+        type: "session.update",
+        session: { tools, tool_choice: "auto" },
+      });
+
+      // c) Seed playbook context as system message
+      if (selectedPlaybookId && playbookContent) {
+        sendClientEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text: `Playbook Context for ${selectedPlaybookId}:\n\n${playbookContent}`,
+              },
+            ],
+          },
+        });
+
+        sendClientEvent({
+          type: "response.create",
+          response: {
+            modalities: ["audio", "text"],
+            instructions:
+              "In a very, very succinct sentence, confirm the playbook is loaded and suggest a single helpful question prompt for the user.",
+          },
+        });
+      }
+    };
+
+    // Message handler: transcripts, user echo, and tool calls
+    const handleMessage = async (e) => {
+      const evt = JSON.parse(e.data);
+      evt.timestamp = evt.timestamp || new Date().toLocaleTimeString();
+
+      // Handle message types (live transcript)
+      if (evt.type === "response.text.delta" && typeof evt.delta === "string") {
+        transcriptBuffer += evt.delta;
+      }
+      if (evt.type === "response.text.done" && typeof evt.text === "string") {
+        transcriptBuffer = evt.text;
+      }
+
+      // Handle tool calls
+      if (
+        evt.type === "response.output_item.added" &&
+        evt.item?.type === "function_call"
+      ) {
+        const callId = evt.item.call_id || evt.item.id;
+        toolCallsRef.current[callId] = { name: evt.item.name, args: "" };
+      }
+
+      if (evt.type === "response.function_call_arguments.delta") {
+        const { call_id, delta } = evt;
+        if (!toolCallsRef.current[call_id])
+          toolCallsRef.current[call_id] = { name: "", args: "" };
+        toolCallsRef.current[call_id].args += delta || "";
+      }
+
+      if (evt.type === "response.function_call_arguments.done") {
+        const { call_id, arguments: argsJson } = evt;
+        const entry = toolCallsRef.current[call_id] || { name: "", args: "" };
+        const name = entry.name;
+        const finalArgs = safeParse(argsJson || entry.args || "{}");
+
+        try {
+          const output = await callServerTool(name, finalArgs);
+
+          sendClientEvent({
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id,
+              output: JSON.stringify(output),
+            },
+          });
+
+          // Model should continue using the tool output
+          sendClientEvent({
+            type: "response.create",
+            response: { modalities: ["audio", "text"] },
+          });
+        } catch (err) {
+          console.error("Tool error:", err);
+
+          // Send error output back to model
+          sendClientEvent({
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id,
+              output: JSON.stringify({
+                error: "tool_error",
+                message: String(err?.message || err),
+              }),
+            },
+          });
+
+          // Continue the response to allow model to handle error
+          sendClientEvent({
+            type: "response.create",
+            response: { modalities: ["audio", "text"] },
+          });
+        } finally {
+          delete toolCallsRef.current[call_id];
+        }
+      }
+
+      // Log all events
+      setEvents((prev) => [evt, ...prev]);
+    };
+
+    dataChannel.addEventListener("open", handleOpen);
+    dataChannel.addEventListener("message", handleMessage);
+
+    return () => {
+      dataChannel.removeEventListener("open", handleOpen);
+      dataChannel.removeEventListener("message", handleMessage);
+    };
+  }, [
+    dataChannel,
+    selectedPlaybookId,
+    playbookContent,
+    functionsSystemPrompt,
+    sendClientEvent,
+    setEvents,
+    setIsSessionActive,
+    toolCallsRef,
+  ]);
+};

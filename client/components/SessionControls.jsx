@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { CloudLightning, CloudOff, MessageSquare } from "react-feather";
 import Button from "./Button";
 
-function SessionStopped({ startSession }) {
+function SessionStopped({ startSession, playbookId }) {
   const [isActivating, setIsActivating] = useState(false);
 
   function handleStartSession() {
@@ -19,7 +19,9 @@ function SessionStopped({ startSession }) {
         className={isActivating ? "bg-gray-600" : "bg-red-600"}
         icon={<CloudLightning height={16} />}
       >
-        {isActivating ? "starting session..." : "start session"}
+        {isActivating
+          ? "starting session..."
+          : `start${playbookId ? ` ${playbookId} ` : " "}session`}
       </Button>
     </div>
   );
@@ -72,6 +74,7 @@ export default function SessionControls({
   sendTextMessage,
   serverEvents,
   isSessionActive,
+  playbookIds = [],
 }) {
   return (
     <div className="flex gap-4 border-t-2 border-gray-200 h-full rounded-md">
@@ -82,6 +85,18 @@ export default function SessionControls({
           sendTextMessage={sendTextMessage}
           serverEvents={serverEvents}
         />
+      ) : playbookIds.length > 0 ? (
+        <>
+          {playbookIds.map((playbookId) => (
+            <Fragment key={playbookId}>
+              <SessionStopped
+                playbookId={playbookId}
+                startSession={() => startSession(playbookId)}
+              />
+            </Fragment>
+          ))}
+          <SessionStopped startSession={startSession} />
+        </>
       ) : (
         <SessionStopped startSession={startSession} />
       )}

@@ -15,7 +15,7 @@ export const getPlaybooks = async () => {
   return await axios
     .get(`${process.env.ASK_WANDA_API_URL}/get_playbooks`, {
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
       },
     })
     .then((response) => {

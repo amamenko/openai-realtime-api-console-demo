@@ -1,87 +1,140 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import logo from "/assets/openai-logomark.svg";
 import EventLog from "./EventLog";
 import SessionControls from "./SessionControls";
 import ToolPanel from "./ToolPanel";
+import { useBootData } from "../hooks/useBootData";
+import { usePlaybookContent } from "../hooks/usePlaybookContent";
+import { useDataChannelEvents } from "../hooks/useDataChannelEvents";
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
+  const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
+
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
+  const toolCallsRef = useRef({}); // { [call_id]: { name, args: string } }
 
-  async function startSession() {
-    // Get a session token for OpenAI Realtime API
-    const tokenResponse = await fetch("/token");
-    const data = await tokenResponse.json();
-    const EPHEMERAL_KEY = data.client_secret.value;
+  const { playbookIds, functionsSystemPrompt } = useBootData();
+  const { playbookContent, loadPlaybookContent } = usePlaybookContent();
 
-    // Create a peer connection
-    const pc = new RTCPeerConnection();
+  const startSession = async (playbookId = "") => {
+    const url = playbookId
+      ? `/token?playbookId=${encodeURIComponent(playbookId)}`
+      : "/token";
 
-    // Set up to play remote audio from the model
-    audioElement.current = document.createElement("audio");
-    audioElement.current.autoplay = true;
-    pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
+    setSelectedPlaybookId(playbookId);
+    await loadPlaybookContent(playbookId);
 
-    // Add local audio track for microphone input in the browser
-    const ms = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+    // Mint ephemeral session
+    const tokenResponse = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
     });
-    pc.addTrack(ms.getTracks()[0]);
+    const sessionData = await tokenResponse.json();
+    const EPHEMERAL_KEY = sessionData.client_secret.value;
+    const modelFromServer =
+      sessionData.model || "gpt-4o-realtime-preview-2025-06-03";
 
-    // Set up data channel for sending and receiving events
-    const dc = pc.createDataChannel("oai-events");
-    setDataChannel(dc);
+    // Peer connection with STUN
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }], // Public STUN server
+      bundlePolicy: "max-bundle",
+    });
+    pc.addTransceiver("audio", { direction: "sendrecv" });
 
-    // Start the session using the Session Description Protocol (SDP)
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+    // Remote audio hookup (audio element already in DOM)
+    pc.ontrack = (e) => {
+      if (audioElement.current) {
+        audioElement.current.srcObject = e.streams[0];
+        audioElement.current.play().catch(() => {});
+      }
+    };
 
-    const baseUrl = "https://api.openai.com/v1/realtime";
-    const model = "gpt-4o-realtime-preview-2024-12-17";
-    const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-      method: "POST",
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${EPHEMERAL_KEY}`,
-        "Content-Type": "application/sdp",
+    // Mic
+    const ms = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
       },
     });
+    const [track] = ms.getAudioTracks();
+    pc.addTrack(track, ms);
 
-    const answer = {
-      type: "answer",
-      sdp: await sdpResponse.text(),
-    };
-    await pc.setRemoteDescription(answer);
+    // Data channel for events
+    const dc = pc.createDataChannel("oai-events", { ordered: true });
+    setDataChannel(dc);
 
-    peerConnection.current = pc;
-  }
+    // Confirm ICE connection
+    pc.oniceconnectionstatechange = () =>
+      console.log("ice:", pc.iceConnectionState);
+    pc.onconnectionstatechange = () => console.log("pc:", pc.connectionState);
 
-  // Stop current session, clean up peer connection and data channel
-  function stopSession() {
-    if (dataChannel) {
-      dataChannel.close();
-    }
+    // Create offer and set local desc
+    const offer = await pc.createOffer({ offerToReceiveAudio: true });
+    await pc.setLocalDescription(offer);
 
-    peerConnection.current.getSenders().forEach((sender) => {
-      if (sender.track) {
-        sender.track.stop();
-      }
+    // Wait for ICE to finish, then send final SDP to OpenAI
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === "complete") return resolve();
+      const check = () => {
+        if (pc.iceGatheringState === "complete") {
+          pc.removeEventListener("icegatheringstatechange", check);
+          resolve();
+        }
+      };
+      pc.addEventListener("icegatheringstatechange", check);
     });
 
-    if (peerConnection.current) {
-      peerConnection.current.close();
-    }
+    const baseUrl = "https://api.openai.com/v1/realtime";
+    const sdpResponse = await fetch(
+      `${baseUrl}?model=${encodeURIComponent(modelFromServer)}`,
+      {
+        method: "POST",
+        body: pc.localDescription.sdp, // Final SDP, not offer.sdp
+        headers: {
+          Authorization: `Bearer ${EPHEMERAL_KEY}`,
+          "Content-Type": "application/sdp",
+        },
+      },
+    );
 
-    setIsSessionActive(false);
-    setDataChannel(null);
-    peerConnection.current = null;
-  }
+    // Apply answer
+    const answerSdp = await sdpResponse.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+    peerConnection.current = pc;
+  };
+
+  // Stop current session, clean up peer connection and data channel
+  const stopSession = () => {
+    try {
+      if (dataChannel) dataChannel.close();
+
+      if (peerConnection.current) {
+        peerConnection.current.getSenders().forEach((sender) => {
+          if (sender.track) {
+            sender.track.stop();
+          }
+        });
+
+        peerConnection.current.close();
+      }
+    } catch (error) {
+      console.error("Error stopping session:", error);
+    } finally {
+      setIsSessionActive(false);
+      setDataChannel(null);
+      peerConnection.current = null;
+      toolCallsRef.current = {};
+    }
+  };
 
   // Send a message to the model
-  function sendClientEvent(message) {
+  const sendClientEvent = (message) => {
     if (dataChannel) {
       const timestamp = new Date().toLocaleTimeString();
       message.event_id = message.event_id || crypto.randomUUID();
@@ -90,9 +143,7 @@ export default function App() {
       dataChannel.send(JSON.stringify(message));
 
       // if guard just in case the timestamp exists by miracle
-      if (!message.timestamp) {
-        message.timestamp = timestamp;
-      }
+      if (!message.timestamp) message.timestamp = timestamp;
       setEvents((prev) => [message, ...prev]);
     } else {
       console.error(
@@ -100,10 +151,10 @@ export default function App() {
         message,
       );
     }
-  }
+  };
 
   // Send a text message to the model
-  function sendTextMessage(message) {
+  const sendTextMessage = (message) => {
     const event = {
       type: "conversation.item.create",
       item: {
@@ -119,32 +170,32 @@ export default function App() {
     };
 
     sendClientEvent(event);
-    sendClientEvent({ type: "response.create" });
-  }
+    sendClientEvent({
+      type: "response.create",
+      response: { modalities: ["audio", "text"] },
+    });
+  };
 
-  // Attach event listeners to the data channel when a new one is created
-  useEffect(() => {
-    if (dataChannel) {
-      // Append new server events to the list
-      dataChannel.addEventListener("message", (e) => {
-        const event = JSON.parse(e.data);
-        if (!event.timestamp) {
-          event.timestamp = new Date().toLocaleTimeString();
-        }
-
-        setEvents((prev) => [event, ...prev]);
-      });
-
-      // Set session active when the data channel is opened
-      dataChannel.addEventListener("open", () => {
-        setIsSessionActive(true);
-        setEvents([]);
-      });
-    }
-  }, [dataChannel]);
+  useDataChannelEvents({
+    dataChannel,
+    setIsSessionActive,
+    setEvents,
+    sendClientEvent,
+    toolCallsRef,
+    functionsSystemPrompt,
+    selectedPlaybookId,
+    playbookContent,
+  });
 
   return (
     <>
+      <audio
+        ref={audioElement}
+        id="remoteAudio"
+        autoPlay
+        playsInline
+        style={{ display: "none" }}
+      />
       <nav className="absolute top-0 left-0 right-0 h-16 flex items-center">
         <div className="flex items-center gap-4 w-full m-4 pb-2 border-0 border-b border-solid border-gray-200">
           <img style={{ width: "24px" }} src={logo} />
@@ -164,6 +215,7 @@ export default function App() {
               sendTextMessage={sendTextMessage}
               events={events}
               isSessionActive={isSessionActive}
+              playbookIds={playbookIds}
             />
           </section>
         </section>

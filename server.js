@@ -2,9 +2,11 @@ import express from "express";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import axios from "axios";
-// import { getPlaybooks } from "./functions/getPlaybooks.js";
-// import { getPlaybook } from "./functions/getPlaybook.js";
-// import { getSystemPrompt } from "./functions/getSystemPrompt.js";
+import { getPlaybooks } from "./functions/getPlaybooks.js";
+import { getSystemPromptFunctions } from "./functions/getSystemPromptFunctions.js";
+import { getPlaybook } from "./functions/getPlaybook.js";
+import { getFcDictionaryToc } from "./functions/getFcDictionaryToc.js";
+import { getFcDictionarySection } from "./functions/getFcDictionarySection.js";
 import "dotenv/config";
 
 const app = express();
@@ -18,16 +20,60 @@ const vite = await createViteServer({
 });
 app.use(vite.middlewares);
 
-// const getRandomSystemPrompt = async () => {
-//   const allPlaybooks = await getPlaybooks();
-//   const randomPlaybook =
-//     allPlaybooks[Math.floor(Math.random() * allPlaybooks.length)];
-//   console.log("Random Playbook:", randomPlaybook);
-//   const sysPrompt = await getSystemPrompt(randomPlaybook);
-//   console.log("Sys Prompt:", sysPrompt);
-// };
+// Function call proxy route
+app.post("/fc/get_dictionary_toc", async (req, res) => {
+  try {
+    const toc = await getFcDictionaryToc();
+    res.json(toc);
+  } catch (error) {
+    console.error("Error fetching function call get_dictionary_toc:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch function call get_dictionary_toc" });
+  }
+});
 
-// getRandomSystemPrompt();
+// Function call proxy route
+app.post("/fc/get_dictionary_section", async (req, res) => {
+  const { section_id } = req.body;
+  if (!section_id) {
+    return res.status(400).json({ error: "Section ID is required" });
+  }
+  try {
+    const section = await getFcDictionarySection(section_id);
+    res.json(section);
+  } catch (error) {
+    console.error(
+      "Error fetching function call get_dictionary_section:",
+      error,
+    );
+    res
+      .status(500)
+      .json({ error: "Failed to fetch function call get_dictionary_section" });
+  }
+});
+
+app.get("/sys_prompt_functions", async (req, res) => {
+  const sysPromptFunctions = (await getSystemPromptFunctions()) || {
+    system_prompt: "",
+  };
+
+  res.json(sysPromptFunctions);
+});
+
+app.get("/playbooks", async (req, res) => {
+  const playbooks = await getPlaybooks();
+  res.json(playbooks);
+});
+
+app.get("/playbook/:id", async (req, res) => {
+  const playbookId = req.params.id;
+  if (!playbookId)
+    return res.status(400).json({ error: "Playbook ID is required" });
+
+  const playbook = await getPlaybook(playbookId);
+  res.json(playbook);
+});
 
 // API route for token generation
 app.get("/token", async (req, res) => {
@@ -37,6 +83,7 @@ app.get("/token", async (req, res) => {
       {
         model: "gpt-4o-realtime-preview-2025-06-03",
         voice: "verse",
+        // instructions: ""
       },
       {
         headers: {

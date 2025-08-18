@@ -13,7 +13,7 @@ export const getPlaybook = async (id) => {
   return await axios
     .get(`${process.env.ASK_WANDA_API_URL}/get_playbook/${id}`, {
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
       },
     })
     .then((response) => response?.data)
