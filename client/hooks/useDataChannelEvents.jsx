@@ -134,10 +134,7 @@ export const useDataChannelEvents = ({
             content: [
               {
                 type: "input_text",
-                text: `Playbook Context for ${selectedPlaybookId}:\n\n${playbookContent.substring(
-                  0,
-                  8000,
-                )}`,
+                text: `Playbook Context for ${selectedPlaybookId}:\n\n${playbookContent}`,
               },
             ],
           },
