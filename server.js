@@ -35,7 +35,7 @@ app.post("/fc/get_dictionary_toc", async (req, res) => {
 
 // Function call proxy route
 app.post("/fc/get_dictionary_section", async (req, res) => {
-  const { section_id } = req.body;
+  const { section_id } = req.body || {};
   if (!section_id) {
     return res.status(400).json({ error: "Section ID is required" });
   }
