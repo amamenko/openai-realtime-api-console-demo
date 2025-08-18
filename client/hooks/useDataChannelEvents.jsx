@@ -134,7 +134,10 @@ export const useDataChannelEvents = ({
             content: [
               {
                 type: "input_text",
-                text: `Playbook Context for ${selectedPlaybookId}:\n\n${playbookContent}`,
+                text: `Playbook Context for ${selectedPlaybookId}:\n\n${playbookContent.substring(
+                  0,
+                  8000,
+                )}`,
               },
             ],
           },
@@ -144,8 +147,7 @@ export const useDataChannelEvents = ({
           type: "response.create",
           response: {
             modalities: ["audio", "text"],
-            instructions:
-              "In a very, very succinct sentence, confirm the playbook is loaded and suggest a single helpful question prompt for the user.",
+            instructions: functionsSystemPrompt,
           },
         });
       }

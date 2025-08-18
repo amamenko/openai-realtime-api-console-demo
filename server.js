@@ -83,7 +83,8 @@ app.get("/token", async (req, res) => {
       {
         model: "gpt-4o-realtime-preview-2025-06-03",
         voice: "verse",
-        // instructions: ""
+        instructions: "Follow the Agent Instructions in your System Prompt.",
+        modalities: ["audio", "text"],
       },
       {
         headers: {
