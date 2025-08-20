@@ -5,8 +5,8 @@ import axios from "axios";
 import { getPlaybooks } from "./functions/getPlaybooks.js";
 import { getSystemPromptFunctions } from "./functions/getSystemPromptFunctions.js";
 import { getPlaybook } from "./functions/getPlaybook.js";
-import { getFcDictionaryToc } from "./functions/getFcDictionaryToc.js";
-import { getFcDictionarySection } from "./functions/getFcDictionarySection.js";
+import { getTalentIqDictionaryToc } from "./functions/getTalentIqDictionaryToc.js";
+import { getTalentIqDictionarySection } from "./functions/getTalentIqDictionarySection.js";
 import "dotenv/config";
 
 const app = express();
@@ -21,35 +21,38 @@ const vite = await createViteServer({
 app.use(vite.middlewares);
 
 // Function call proxy route
-app.post("/fc/get_dictionary_toc", async (req, res) => {
+app.post("/get_talentiq_dictionary_toc", async (req, res) => {
   try {
-    const toc = await getFcDictionaryToc();
+    const toc = await getTalentIqDictionaryToc();
     res.json(toc);
   } catch (error) {
-    console.error("Error fetching function call get_dictionary_toc:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch function call get_dictionary_toc" });
+    console.error(
+      "Error fetching function call get_talentiq_dictionary_toc:",
+      error,
+    );
+    res.status(500).json({
+      error: "Failed to fetch function call get_talentiq_dictionary_toc",
+    });
   }
 });
 
 // Function call proxy route
-app.post("/fc/get_dictionary_section", async (req, res) => {
+app.post("/get_talentiq_dictionary_section", async (req, res) => {
   const { section_id } = req.body || {};
   if (!section_id) {
     return res.status(400).json({ error: "Section ID is required" });
   }
   try {
-    const section = await getFcDictionarySection(section_id);
+    const section = await getTalentIqDictionarySection(section_id);
     res.json(section);
   } catch (error) {
     console.error(
-      "Error fetching function call get_dictionary_section:",
+      "Error fetching function call get_talentiq_dictionary_section:",
       error,
     );
-    res
-      .status(500)
-      .json({ error: "Failed to fetch function call get_dictionary_section" });
+    res.status(500).json({
+      error: "Failed to fetch function call get_talentiq_dictionary_section",
+    });
   }
 });
 

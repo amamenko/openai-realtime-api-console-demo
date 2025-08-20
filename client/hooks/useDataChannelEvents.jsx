@@ -19,16 +19,17 @@ export const useDataChannelEvents = ({
     const callServerTool = async (name, args) => {
       const headers = { "Content-Type": "application/json" };
       switch (name) {
-        case "get_dictionary_toc": {
-          const response = await fetch("/fc/get_dictionary_toc", {
+        case "get_talentiq_dictionary_toc": {
+          const response = await fetch("/get_talentiq_dictionary_toc", {
             method: "POST",
             headers,
           });
-          if (!response.ok) throw new Error("get_dictionary_toc failed");
+          if (!response.ok)
+            throw new Error("get_talentiq_dictionary_toc failed");
           return response.json();
         }
         case "get_talentiq_dictionary_section": {
-          const response = await fetch("/fc/get_dictionary_section", {
+          const response = await fetch("/get_talentiq_dictionary_section", {
             method: "POST",
             headers,
             body: JSON.stringify({ section_id: args?.section_id || "" }),
@@ -37,17 +38,11 @@ export const useDataChannelEvents = ({
             throw new Error("get_talentiq_dictionary_section failed");
           return response.json();
         }
-        case "get_section_content": {
-          const response = await fetch("/fc/get_dictionary_section", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ section_id: args?.id || "" }),
-          });
-          if (!response.ok) throw new Error("get_section_content failed");
-          return response.json();
-        }
         default:
-          throw new Error(`Unknown tool: ${name}`);
+          return {
+            error: "unknown_function",
+            message: `Unknown function: ${name}. Must be one of the following: get_talentiq_dictionary_toc, get_talentiq_dictionary_section.`,
+          };
       }
     };
 
@@ -63,7 +58,6 @@ export const useDataChannelEvents = ({
       setIsSessionActive(true);
       setEvents([]);
 
-      // a) Configure session
       sendClientEvent({
         type: "session.update",
         session: {
@@ -79,11 +73,11 @@ export const useDataChannelEvents = ({
         },
       });
 
-      // b) Register tools
+      // Register tools (function calls)
       const tools = [
         {
           type: "function",
-          name: "get_dictionary_toc",
+          name: "get_talentiq_dictionary_toc",
           description:
             "Retrieve the table of contents and number of sections in the TalentIQ dictionary.",
           parameters: { type: "object", properties: {}, required: [] },
@@ -104,19 +98,6 @@ export const useDataChannelEvents = ({
             required: ["section_id"],
           },
         },
-        {
-          type: "function",
-          name: "get_section_content",
-          description:
-            "Alias of get_talentiq_dictionary_section. Provide { id } which maps to section_id.",
-          parameters: {
-            type: "object",
-            properties: {
-              id: { type: "string", description: "Alias of section_id" },
-            },
-            required: ["id"],
-          },
-        },
       ];
 
       sendClientEvent({
@@ -124,7 +105,7 @@ export const useDataChannelEvents = ({
         session: { tools, tool_choice: "auto" },
       });
 
-      // c) Seed playbook context as system message
+      // Seed playbook context as system message
       if (selectedPlaybookId && playbookContent) {
         sendClientEvent({
           type: "conversation.item.create",
@@ -188,16 +169,30 @@ export const useDataChannelEvents = ({
         try {
           const output = await callServerTool(name, finalArgs);
 
-          sendClientEvent({
-            type: "conversation.item.create",
-            item: {
-              type: "function_call_output",
-              call_id,
-              output: JSON.stringify(output),
-            },
-          });
+          // Check for specific error object returned from callServerTool
+          if (output.error === "unknown_function") {
+            // Send the specific error message back to the model
+            sendClientEvent({
+              type: "conversation.item.create",
+              item: {
+                type: "function_call_output",
+                call_id,
+                output: JSON.stringify(output),
+              },
+            });
+          } else {
+            // Standard success path
+            sendClientEvent({
+              type: "conversation.item.create",
+              item: {
+                type: "function_call_output",
+                call_id,
+                output: JSON.stringify(output),
+              },
+            });
+          }
 
-          // Model should continue using the tool output
+          // Model should continue using the tool output or handle the error
           sendClientEvent({
             type: "response.create",
             response: { modalities: ["audio", "text"] },
