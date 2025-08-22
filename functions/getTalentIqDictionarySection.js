@@ -7,7 +7,7 @@ export const getTalentIqDictionarySection = async (id) => {
     );
 
   return await axios
-    .post(
+    .get(
       `${process.env.ASK_WANDA_API_URL}/get_talentiq_dictionary_section`,
       {
         section_id: id,

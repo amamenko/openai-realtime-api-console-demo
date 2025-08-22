@@ -21,7 +21,7 @@ const vite = await createViteServer({
 app.use(vite.middlewares);
 
 // Function call proxy route
-app.post("/get_talentiq_dictionary_toc", async (req, res) => {
+app.get("/get_talentiq_dictionary_toc", async (req, res) => {
   try {
     const toc = await getTalentIqDictionaryToc();
     res.json(toc);
@@ -37,7 +37,7 @@ app.post("/get_talentiq_dictionary_toc", async (req, res) => {
 });
 
 // Function call proxy route
-app.post("/get_talentiq_dictionary_section", async (req, res) => {
+app.get("/get_talentiq_dictionary_section", async (req, res) => {
   const { section_id } = req.body || {};
   if (!section_id) {
     return res.status(400).json({ error: "Section ID is required" });

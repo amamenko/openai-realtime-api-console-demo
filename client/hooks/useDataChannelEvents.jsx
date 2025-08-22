@@ -21,7 +21,7 @@ export const useDataChannelEvents = ({
       switch (name) {
         case "get_talentiq_dictionary_toc": {
           const response = await fetch("/get_talentiq_dictionary_toc", {
-            method: "POST",
+            method: "GET",
             headers,
           });
           if (!response.ok)
@@ -30,7 +30,7 @@ export const useDataChannelEvents = ({
         }
         case "get_talentiq_dictionary_section": {
           const response = await fetch("/get_talentiq_dictionary_section", {
-            method: "POST",
+            method: "GET",
             headers,
             body: JSON.stringify({ section_id: args?.section_id || "" }),
           });

@@ -2,7 +2,7 @@ import axios from "axios";
 
 export const getTalentIqDictionaryToc = async () => {
   return await axios
-    .post(`${process.env.ASK_WANDA_API_URL}/get_talentiq_dictionary_toc`, {
+    .get(`${process.env.ASK_WANDA_API_URL}/get_talentiq_dictionary_toc`, {
       headers: {
         Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
       },
