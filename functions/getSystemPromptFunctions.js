@@ -6,18 +6,22 @@ import axios from "axios";
 // }
 
 // Gets initial system prompt functions for model
-export const getSystemPromptFunctions = async (id) => {
-  return await axios
-    .get(`${process.env.ASK_WANDA_API_URL}/get_sys_prompt_functions`, {
-      headers: {
-        Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
+export const getSystemPromptFunctions = async () => {
+  try {
+    const response = await axios.get(
+      `${process.env.ASK_WANDA_API_URL}/get_sys_prompt_functions`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
+        },
       },
-    })
-    .then((response) => {
-      return response?.data;
-    })
-    .catch((error) => {
-      console.error("Error fetching system prompt functions:", error);
-      throw new Error("Failed to fetch system prompt functions");
-    });
+    );
+    return response?.data;
+  } catch (error) {
+    console.error("Error fetching system prompt functions:", error);
+    return {
+      system_prompt:
+        "You are a helpful AI assistant. Please follow the user's instructions.",
+    };
+  }
 };

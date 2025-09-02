@@ -24,9 +24,8 @@ export const usePlaybookContent = () => {
       }
 
       const data = await res.json();
-      const raw = data?.content || "";
-      const trimmed = raw.slice(0, 8000);
-      setPlaybookContent(trimmed);
+      const content = data?.content || "";
+      setPlaybookContent(content);
     } catch (e) {
       console.error("Failed to load playbook content", e);
       setError(e);

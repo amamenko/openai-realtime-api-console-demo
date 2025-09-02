@@ -38,7 +38,7 @@ app.get("/get_talentiq_dictionary_toc", async (req, res) => {
 
 // Function call proxy route
 app.get("/get_talentiq_dictionary_section", async (req, res) => {
-  const { section_id } = req.body || {};
+  const { section_id } = req.query || {};
   if (!section_id) {
     return res.status(400).json({ error: "Section ID is required" });
   }
@@ -58,7 +58,8 @@ app.get("/get_talentiq_dictionary_section", async (req, res) => {
 
 app.get("/sys_prompt_functions", async (req, res) => {
   const sysPromptFunctions = (await getSystemPromptFunctions()) || {
-    system_prompt: "",
+    system_prompt:
+      "You are a helpful AI assistant. Please follow the user's instructions.",
   };
 
   res.json(sysPromptFunctions);
@@ -84,8 +85,10 @@ app.get("/token", async (req, res) => {
     .post(
       "https://api.openai.com/v1/realtime/sessions",
       {
-        model: "gpt-4o-realtime-preview-2025-06-03",
-        voice: "verse",
+        model:
+          process.env.OPENAI_REALTIME_MODEL ||
+          "gpt-4o-realtime-preview-2025-06-03",
+        voice: process.env.OPENAI_REALTIME_VOICE || "verse",
         instructions: "Follow the Agent Instructions in your System Prompt.",
         modalities: ["audio", "text"],
       },

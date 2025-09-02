@@ -10,6 +10,7 @@ export const useDataChannelEvents = ({
   functionsSystemPrompt,
   selectedPlaybookId,
   playbookContent,
+  talentIqDictionaryToc,
 }) => {
   useEffect(() => {
     if (!dataChannel) return;
@@ -17,23 +18,12 @@ export const useDataChannelEvents = ({
     let transcriptBuffer = "";
 
     const callServerTool = async (name, args) => {
-      const headers = { "Content-Type": "application/json" };
       switch (name) {
-        case "get_talentiq_dictionary_toc": {
-          const response = await fetch("/get_talentiq_dictionary_toc", {
-            method: "GET",
-            headers,
-          });
-          if (!response.ok)
-            throw new Error("get_talentiq_dictionary_toc failed");
-          return response.json();
-        }
         case "get_talentiq_dictionary_section": {
-          const response = await fetch("/get_talentiq_dictionary_section", {
-            method: "GET",
-            headers,
-            body: JSON.stringify({ section_id: args?.section_id || "" }),
-          });
+          const sectionId = encodeURIComponent(args?.section_id || "");
+          const response = await fetch(
+            `/get_talentiq_dictionary_section?section_id=${sectionId}`,
+          );
           if (!response.ok)
             throw new Error("get_talentiq_dictionary_section failed");
           return response.json();
@@ -41,7 +31,7 @@ export const useDataChannelEvents = ({
         default:
           return {
             error: "unknown_function",
-            message: `Unknown function: ${name}. Must be one of the following: get_talentiq_dictionary_toc, get_talentiq_dictionary_section.`,
+            message: `Unknown function: ${name}. Must be get_talentiq_dictionary_section.`,
           };
       }
     };
@@ -75,13 +65,6 @@ export const useDataChannelEvents = ({
 
       // Register tools (function calls)
       const tools = [
-        {
-          type: "function",
-          name: "get_talentiq_dictionary_toc",
-          description:
-            "Retrieve the table of contents and number of sections in the TalentIQ dictionary.",
-          parameters: { type: "object", properties: {}, required: [] },
-        },
         {
           type: "function",
           name: "get_talentiq_dictionary_section",
@@ -120,12 +103,42 @@ export const useDataChannelEvents = ({
             ],
           },
         });
+      }
 
+      // Seed TalentIQ Dictionary TOC as system message
+      if (talentIqDictionaryToc) {
         sendClientEvent({
-          type: "response.create",
-          response: {
-            modalities: ["audio", "text"],
-            instructions: functionsSystemPrompt,
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text: `TalentIQ Dictionary TOC:\n\n${JSON.stringify(
+                  talentIqDictionaryToc,
+                  null,
+                  2,
+                )}`,
+              },
+            ],
+          },
+        });
+      }
+
+      // Seed custom functions system prompt as system message
+      if (functionsSystemPrompt) {
+        sendClientEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text: functionsSystemPrompt,
+              },
+            ],
           },
         });
       }

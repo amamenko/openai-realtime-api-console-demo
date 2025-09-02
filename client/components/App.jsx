@@ -6,6 +6,7 @@ import ToolPanel from "./ToolPanel";
 import { useBootData } from "../hooks/useBootData";
 import { usePlaybookContent } from "../hooks/usePlaybookContent";
 import { useDataChannelEvents } from "../hooks/useDataChannelEvents";
+import { useTalentIqDictionaryToc } from "../hooks/useTalentIqDictionaryToc";
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -19,6 +20,8 @@ export default function App() {
 
   const { playbookIds, functionsSystemPrompt } = useBootData();
   const { playbookContent, loadPlaybookContent } = usePlaybookContent();
+  const { talentIqDictionaryToc, loadTalentIqDictionaryToc } =
+    useTalentIqDictionaryToc();
 
   const startSession = async (playbookId = "") => {
     const url = playbookId
@@ -27,6 +30,7 @@ export default function App() {
 
     setSelectedPlaybookId(playbookId);
     await loadPlaybookContent(playbookId);
+    await loadTalentIqDictionaryToc();
 
     // Mint ephemeral session
     const tokenResponse = await fetch(url, {
@@ -185,6 +189,7 @@ export default function App() {
     functionsSystemPrompt,
     selectedPlaybookId,
     playbookContent,
+    talentIqDictionaryToc,
   });
 
   return (

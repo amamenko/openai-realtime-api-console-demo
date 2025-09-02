@@ -8,10 +8,7 @@ export const getTalentIqDictionarySection = async (id) => {
 
   return await axios
     .get(
-      `${process.env.ASK_WANDA_API_URL}/get_talentiq_dictionary_section`,
-      {
-        section_id: id,
-      },
+      `${process.env.ASK_WANDA_API_URL}/get_talentiq_dictionary_section/${id}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.ASK_WANDA_API_TOKEN}`,
