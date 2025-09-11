@@ -17,7 +17,7 @@ export const ConversationSessionProvider = ({
   sendClientEvent,
   sendTextMessage,
   events,
-  setEvent,
+  setEvents,
   isSessionActive,
   setIsSessionActive,
   playbookIds,
@@ -27,6 +27,12 @@ export const ConversationSessionProvider = ({
   selectedPlaybookId,
   playbookContent,
   talentIqDictionaryToc,
+  isWandaModalOpen,
+  setIsWandaModalOpen,
+  conversationState,
+  setConversationState,
+  setLiveTranscript,
+  liveTranscript,
   children,
 }) => {
   return (
@@ -37,7 +43,7 @@ export const ConversationSessionProvider = ({
         sendClientEvent,
         sendTextMessage,
         events,
-        setEvent,
+        setEvents,
         isSessionActive,
         setIsSessionActive,
         playbookIds,
@@ -47,6 +53,12 @@ export const ConversationSessionProvider = ({
         selectedPlaybookId,
         playbookContent,
         talentIqDictionaryToc,
+        isWandaModalOpen,
+        setIsWandaModalOpen,
+        conversationState,
+        setConversationState,
+        setLiveTranscript,
+        liveTranscript,
       }}
     >
       {children}

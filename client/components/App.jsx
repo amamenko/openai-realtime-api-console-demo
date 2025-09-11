@@ -1,18 +1,21 @@
 import { useRef, useState } from "react";
-import logo from "/assets/openai-logomark.svg";
 import { useBootData } from "../hooks/useBootData";
 import { usePlaybookContent } from "../hooks/usePlaybookContent";
 import { useTalentIqDictionaryToc } from "../hooks/useTalentIqDictionaryToc";
 import { ConversationSessionProvider } from "../context/ConversationSessionProvider";
 import ConversationBody from "./ConversationBody";
+import Header from "./Header";
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
+
+  // Ask Wanda Modal UI state
   const [conversationState, setConversationState] = useState("idle");
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [isWandaModalOpen, setIsWandaModalOpen] = useState(false);
 
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
@@ -24,6 +27,12 @@ export default function App() {
     useTalentIqDictionaryToc();
 
   const startSession = async (playbookId = "") => {
+    // Stop any existing session before starting a new one
+    if (peerConnection.current || dataChannel) stopSession();
+
+    setLiveTranscript("");
+    setConversationState("idle");
+
     const url = playbookId
       ? `/token?playbookId=${encodeURIComponent(playbookId)}`
       : "/token";
@@ -187,7 +196,7 @@ export default function App() {
       sendClientEvent={sendClientEvent}
       sendTextMessage={sendTextMessage}
       events={events}
-      setEvent={setEvents}
+      setEvents={setEvents}
       isSessionActive={isSessionActive}
       setIsSessionActive={setIsSessionActive}
       playbookIds={playbookIds}
@@ -201,6 +210,8 @@ export default function App() {
       setConversationState={setConversationState}
       liveTranscript={liveTranscript}
       setLiveTranscript={setLiveTranscript}
+      isWandaModalOpen={isWandaModalOpen}
+      setIsWandaModalOpen={setIsWandaModalOpen}
     >
       <audio
         ref={audioElement}
@@ -209,12 +220,7 @@ export default function App() {
         playsInline
         style={{ display: "none" }}
       />
-      <nav className="absolute top-0 left-0 right-0 h-16 flex items-center">
-        <div className="flex items-center gap-4 w-full m-4 pb-2 border-0 border-b border-solid border-gray-200">
-          <img style={{ width: "24px" }} src={logo} />
-          <h1>Avi OpenAI Realtime API Demo Console</h1>
-        </div>
-      </nav>
+      <Header />
       <ConversationBody />
     </ConversationSessionProvider>
   );

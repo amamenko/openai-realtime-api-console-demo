@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useConversationSession } from "../context/ConversationSessionProvider";
 
 // Custom hook to manage data channel listeners and events
 export const useDataChannelEvents = () => {
@@ -12,6 +13,8 @@ export const useDataChannelEvents = () => {
     selectedPlaybookId,
     playbookContent,
     talentIqDictionaryToc,
+    setLiveTranscript,
+    setConversationState,
   } = useConversationSession();
 
   useEffect(() => {
@@ -159,6 +162,7 @@ export const useDataChannelEvents = () => {
 
       if (evt.type === "response.created") {
         setConversationState("thinking");
+        setLiveTranscript("");
       }
 
       if (evt.type === "output_audio_buffer.started") {
@@ -271,5 +275,7 @@ export const useDataChannelEvents = () => {
     setEvents,
     setIsSessionActive,
     toolCallsRef,
+    setLiveTranscript,
+    setConversationState,
   ]);
 };
