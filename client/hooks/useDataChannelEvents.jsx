@@ -1,21 +1,21 @@
 import { useEffect } from "react";
 
 // Custom hook to manage data channel listeners and events
-export const useDataChannelEvents = ({
-  dataChannel,
-  setIsSessionActive,
-  setEvents,
-  sendClientEvent,
-  toolCallsRef,
-  functionsSystemPrompt,
-  selectedPlaybookId,
-  playbookContent,
-  talentIqDictionaryToc,
-}) => {
+export const useDataChannelEvents = () => {
+  const {
+    dataChannel,
+    setIsSessionActive,
+    setEvents,
+    sendClientEvent,
+    toolCallsRef,
+    functionsSystemPrompt,
+    selectedPlaybookId,
+    playbookContent,
+    talentIqDictionaryToc,
+  } = useConversationSession();
+
   useEffect(() => {
     if (!dataChannel) return;
-
-    let transcriptBuffer = "";
 
     const callServerTool = async (name, args) => {
       switch (name) {
@@ -144,17 +144,32 @@ export const useDataChannelEvents = ({
       }
     };
 
-    // Message handler: transcripts, user echo, and tool calls
+    // Message handler: UI feedback, transcripts, user echo, and tool calls
     const handleMessage = async (e) => {
       const evt = JSON.parse(e.data);
       evt.timestamp = evt.timestamp || new Date().toLocaleTimeString();
 
       // Handle message types (live transcript)
-      if (evt.type === "response.text.delta" && typeof evt.delta === "string") {
-        transcriptBuffer += evt.delta;
+      if (evt.type === "response.audio_transcript.delta") {
+        setLiveTranscript((prev) => prev + evt.delta);
       }
-      if (evt.type === "response.text.done" && typeof evt.text === "string") {
-        transcriptBuffer = evt.text;
+      if (evt.type === "response.audio_transcript.done") {
+        setLiveTranscript(evt.transcript);
+      }
+
+      if (evt.type === "response.created") {
+        setConversationState("thinking");
+      }
+
+      if (evt.type === "output_audio_buffer.started") {
+        setConversationState("speaking");
+      }
+
+      if (
+        evt.type === "response.audio.done" ||
+        evt.type === "output_audio_buffer.stopped"
+      ) {
+        setConversationState("idle");
       }
 
       // Handle tool calls

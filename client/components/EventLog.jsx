@@ -1,5 +1,6 @@
 import { ArrowUp, ArrowDown } from "react-feather";
 import { useState } from "react";
+import { useConversationSession } from "../context/ConversationSessionProvider";
 
 function Event({ event, timestamp }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -33,7 +34,8 @@ function Event({ event, timestamp }) {
   );
 }
 
-export default function EventLog({ events }) {
+export default function EventLog() {
+  const { events } = useConversationSession();
   const eventsToDisplay = [];
   let deltaEvents = {};
 

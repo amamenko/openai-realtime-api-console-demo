@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { CloudLightning, CloudOff, MessageSquare } from "react-feather";
 import Button from "./Button";
+import { useConversationSession } from "../context/ConversationSessionProvider";
 
 function SessionStopped({ startSession, playbookId }) {
   const [isActivating, setIsActivating] = useState(false);
@@ -67,15 +68,16 @@ function SessionActive({ stopSession, sendTextMessage }) {
   );
 }
 
-export default function SessionControls({
-  startSession,
-  stopSession,
-  sendClientEvent,
-  sendTextMessage,
-  serverEvents,
-  isSessionActive,
-  playbookIds = [],
-}) {
+export default function SessionControls() {
+  const {
+    startSession,
+    stopSession,
+    sendClientEvent,
+    sendTextMessage,
+    serverEvents,
+    isSessionActive,
+    playbookIds = [],
+  } = useConversationSession();
   return (
     <div className="flex gap-4 border-t-2 border-gray-200 h-full rounded-md">
       {isSessionActive ? (

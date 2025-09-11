@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConversationSession } from "../context/ConversationSessionProvider";
 
 const functionDescription = `
 Call this function when a user asks for a color palette.
@@ -63,11 +64,8 @@ function FunctionCallOutput({ functionCallOutput }) {
   );
 }
 
-export default function ToolPanel({
-  isSessionActive,
-  sendClientEvent,
-  events,
-}) {
+export default function ToolPanel() {
+  const { sendClientEvent, events, isSessionActive } = useConversationSession();
   const [functionAdded, setFunctionAdded] = useState(false);
   const [functionCallOutput, setFunctionCallOutput] = useState(null);
 

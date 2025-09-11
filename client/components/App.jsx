@@ -1,18 +1,18 @@
 import { useRef, useState } from "react";
 import logo from "/assets/openai-logomark.svg";
-import EventLog from "./EventLog";
-import SessionControls from "./SessionControls";
-import ToolPanel from "./ToolPanel";
 import { useBootData } from "../hooks/useBootData";
 import { usePlaybookContent } from "../hooks/usePlaybookContent";
-import { useDataChannelEvents } from "../hooks/useDataChannelEvents";
 import { useTalentIqDictionaryToc } from "../hooks/useTalentIqDictionaryToc";
+import { ConversationSessionProvider } from "../context/ConversationSessionProvider";
+import ConversationBody from "./ConversationBody";
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
+  const [conversationState, setConversationState] = useState("idle");
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
@@ -180,20 +180,28 @@ export default function App() {
     });
   };
 
-  useDataChannelEvents({
-    dataChannel,
-    setIsSessionActive,
-    setEvents,
-    sendClientEvent,
-    toolCallsRef,
-    functionsSystemPrompt,
-    selectedPlaybookId,
-    playbookContent,
-    talentIqDictionaryToc,
-  });
-
   return (
-    <>
+    <ConversationSessionProvider
+      startSession={startSession}
+      stopSession={stopSession}
+      sendClientEvent={sendClientEvent}
+      sendTextMessage={sendTextMessage}
+      events={events}
+      setEvent={setEvents}
+      isSessionActive={isSessionActive}
+      setIsSessionActive={setIsSessionActive}
+      playbookIds={playbookIds}
+      dataChannel={dataChannel}
+      toolCallsRef={toolCallsRef}
+      functionsSystemPrompt={functionsSystemPrompt}
+      selectedPlaybookId={selectedPlaybookId}
+      playbookContent={playbookContent}
+      talentIqDictionaryToc={talentIqDictionaryToc}
+      conversationState={conversationState}
+      setConversationState={setConversationState}
+      liveTranscript={liveTranscript}
+      setLiveTranscript={setLiveTranscript}
+    >
       <audio
         ref={audioElement}
         id="remoteAudio"
@@ -207,32 +215,7 @@ export default function App() {
           <h1>Avi OpenAI Realtime API Demo Console</h1>
         </div>
       </nav>
-      <main className="absolute top-16 left-0 right-0 bottom-0">
-        <section className="absolute top-0 left-0 right-[380px] bottom-0 flex">
-          <section className="absolute top-0 left-0 right-0 bottom-32 px-4 overflow-y-auto">
-            <EventLog events={events} />
-          </section>
-          <section className="absolute h-32 left-0 right-0 bottom-0 p-4">
-            <SessionControls
-              startSession={startSession}
-              stopSession={stopSession}
-              sendClientEvent={sendClientEvent}
-              sendTextMessage={sendTextMessage}
-              events={events}
-              isSessionActive={isSessionActive}
-              playbookIds={playbookIds}
-            />
-          </section>
-        </section>
-        <section className="absolute top-0 w-[380px] right-0 bottom-0 p-4 pt-0 overflow-y-auto">
-          <ToolPanel
-            sendClientEvent={sendClientEvent}
-            sendTextMessage={sendTextMessage}
-            events={events}
-            isSessionActive={isSessionActive}
-          />
-        </section>
-      </main>
-    </>
+      <ConversationBody />
+    </ConversationSessionProvider>
   );
 }
