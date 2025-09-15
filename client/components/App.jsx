@@ -16,15 +16,129 @@ export default function App() {
   const [conversationState, setConversationState] = useState("idle");
   const [liveTranscript, setLiveTranscript] = useState("");
   const [isWandaModalOpen, setIsWandaModalOpen] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
 
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
+  const micVisualizerRef = useRef(null);
+  const agentVisualizerRef = useRef(null);
+  const audioContextRef = useRef(null);
   const toolCallsRef = useRef({}); // { [call_id]: { name, args: string } }
+
+  // Debounce timers
+  const userSpeakingTimeout = useRef(null);
+  const userSilenceTimeout = useRef(null);
+  const agentSpeakingTimeout = useRef(null);
+  const agentSilenceTimeout = useRef(null);
 
   const { playbookIds, functionsSystemPrompt } = useBootData();
   const { playbookContent, loadPlaybookContent } = usePlaybookContent();
   const { talentIqDictionaryToc, loadTalentIqDictionaryToc } =
     useTalentIqDictionaryToc();
+
+  const detectSpeech = (analyser, setSpeakingState, type) => {
+    const buffer = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(buffer);
+
+    // Compute RMS (Root Mean Square) volume
+    let sumSquares = 0;
+    for (const value of buffer) {
+      const normalized = value / 128 - 1; // range [-1, 1]
+      sumSquares += normalized * normalized;
+    }
+    const rms = Math.sqrt(sumSquares / buffer.length);
+
+    const isSilentFrame = buffer.every((v) => v === 128);
+
+    // Thresholds
+    const SPEAKING_THRESHOLD = 0.07;
+    const SPEAKING_DEBOUNCE = 100;
+    const SILENCE_DEBOUNCE = 1250;
+
+    const speakingRef =
+      type === "user" ? userSpeakingTimeout : agentSpeakingTimeout;
+    const silenceRef =
+      type === "user" ? userSilenceTimeout : agentSilenceTimeout;
+
+    if (rms > SPEAKING_THRESHOLD && !isSilentFrame) {
+      // Voice detected
+      clearTimeout(silenceRef.current);
+      silenceRef.current = null;
+
+      if (!speakingRef.current) {
+        speakingRef.current = setTimeout(() => {
+          setSpeakingState(true);
+          speakingRef.current = null;
+        }, SPEAKING_DEBOUNCE);
+      }
+    } else {
+      // Silence detected
+      clearTimeout(speakingRef.current);
+      speakingRef.current = null;
+
+      if (!silenceRef.current) {
+        silenceRef.current = setTimeout(() => {
+          setSpeakingState(false);
+          silenceRef.current = null;
+        }, SILENCE_DEBOUNCE);
+      }
+    }
+  };
+
+  const visualize = (analyser, canvasRef, type) => {
+    if (!canvasRef) return;
+    const canvas = canvasRef;
+    const canvasCtx = canvas.getContext("2d");
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Create the gradient outside the draw loop for performance
+    const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#5A67D8");
+    gradient.addColorStop(1, "#9F7AEA");
+
+    const draw = () => {
+      if (
+        !audioContextRef.current ||
+        audioContextRef.current.state === "closed"
+      )
+        return;
+
+      requestAnimationFrame(draw);
+
+      analyser.getByteFrequencyData(dataArray);
+
+      detectSpeech(
+        analyser,
+        type === "user" ? setIsUserSpeaking : setIsAgentSpeaking,
+        type,
+      );
+
+      canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = dataArray[i];
+
+        canvasCtx.fillStyle = gradient;
+        canvasCtx.fillRect(
+          x,
+          canvas.height - barHeight / 2,
+          barWidth,
+          barHeight / 2,
+        );
+
+        x += barWidth + 1;
+      }
+    };
+
+    draw();
+  };
 
   const startSession = async (playbookId = "") => {
     // Stop any existing session before starting a new one
@@ -63,8 +177,25 @@ export default function App() {
       if (audioElement.current) {
         audioElement.current.srcObject = e.streams[0];
         audioElement.current.play().catch(() => {});
+
+        e.streams[0].getAudioTracks().forEach((track) => {
+          track.onended = () => {
+            setIsAgentSpeaking(false);
+          };
+        });
+
+        const remoteStreamSource =
+          audioContextRef.current.createMediaStreamSource(e.streams[0]);
+        const agentAnalyser = audioContextRef.current.createAnalyser();
+        remoteStreamSource.connect(agentAnalyser);
+
+        // Start the visualization loop for agent audio
+        visualize(agentAnalyser, agentVisualizerRef.current, "agent");
       }
     };
+
+    audioContextRef.current = new (window.AudioContext ||
+      window.webkitAudioContext)();
 
     // Mic
     const ms = await navigator.mediaDevices.getUserMedia({
@@ -76,6 +207,13 @@ export default function App() {
     });
     const [track] = ms.getAudioTracks();
     pc.addTrack(track, ms);
+
+    const micSource = audioContextRef.current.createMediaStreamSource(ms);
+    const micAnalyser = audioContextRef.current.createAnalyser();
+    micSource.connect(micAnalyser);
+
+    // Start the visualization loop for mic audio
+    visualize(micAnalyser, micVisualizerRef.current, "user");
 
     // Data channel for events
     const dc = pc.createDataChannel("oai-events", { ordered: true });
@@ -141,6 +279,23 @@ export default function App() {
     } finally {
       setIsSessionActive(false);
       setDataChannel(null);
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (audioElement.current) {
+        audioElement.current.srcObject = null;
+      }
+      setIsUserSpeaking(false);
+      setIsAgentSpeaking(false);
+      clearTimeout(userSpeakingTimeout.current);
+      clearTimeout(userSilenceTimeout.current);
+      clearTimeout(agentSpeakingTimeout.current);
+      clearTimeout(agentSilenceTimeout.current);
+      userSpeakingTimeout.current = null;
+      userSilenceTimeout.current = null;
+      agentSpeakingTimeout.current = null;
+      agentSilenceTimeout.current = null;
       peerConnection.current = null;
       toolCallsRef.current = {};
     }
@@ -212,6 +367,8 @@ export default function App() {
       setLiveTranscript={setLiveTranscript}
       isWandaModalOpen={isWandaModalOpen}
       setIsWandaModalOpen={setIsWandaModalOpen}
+      isUserSpeaking={isUserSpeaking}
+      isAgentSpeaking={isAgentSpeaking}
     >
       <audio
         ref={audioElement}
@@ -221,7 +378,10 @@ export default function App() {
         style={{ display: "none" }}
       />
       <Header />
-      <ConversationBody />
+      <ConversationBody
+        micVisualizerRef={micVisualizerRef}
+        agentVisualizerRef={agentVisualizerRef}
+      />
     </ConversationSessionProvider>
   );
 }

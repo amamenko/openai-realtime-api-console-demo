@@ -23,7 +23,9 @@ const SessionStopped = ({ playbookId }) => {
     <div className="flex items-center justify-center w-full h-full">
       <Button
         onClick={handleStartSession}
-        className={`w-full ${isActivating ? "!bg-gray-400" : "!bg-blue-100"}`}
+        className={`w-full ${
+          isActivating ? "!bg-gray-400" : "!bg-blue-100"
+        } opacity-100 hover:opacity-70 transition-opacity`}
         icon={<CloudLightning height={16} color="black" />}
       >
         <span className="text-black">
@@ -36,7 +38,10 @@ const SessionStopped = ({ playbookId }) => {
   );
 };
 
-const SessionActive = ({ orientation = "horizontal" }) => {
+const SessionActive = ({
+  orientation = "horizontal",
+  includeTextMessages = true,
+}) => {
   const { stopSession, sendTextMessage } = useConversationSession();
 
   const [message, setMessage] = useState("");
@@ -54,40 +59,42 @@ const SessionActive = ({ orientation = "horizontal" }) => {
         isHorizontal ? "flex-row" : "flex-col"
       }`}
     >
-      <div className="flex flex-row gap-2  w-full h-full">
-        <input
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && message.trim()) {
-              handleSendClientEvent();
-            }
-          }}
-          type="text"
-          placeholder="send a text message..."
-          className={`border border-gray-200 rounded p-4 flex-1 ${
-            isHorizontal ? "" : "w-full"
-          }`}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-        <Button
-          onClick={() => {
-            if (message.trim()) {
-              handleSendClientEvent();
-            }
-          }}
-          icon={<MessageSquare height={16} />}
-          className={`flex min-w-[135px] ${
-            isHorizontal ? "flex-[0.2]" : "flex-[0.25]"
-          } items-center justify-center bg-blue-400 ${
-            isHorizontal ? "" : "w-full"
-          }`}
-        >
-          send text
-        </Button>
-      </div>
+      {includeTextMessages && (
+        <div className="flex flex-row gap-2  w-full h-full">
+          <input
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && message.trim()) {
+                handleSendClientEvent();
+              }
+            }}
+            type="text"
+            placeholder="send a text message..."
+            className={`border border-gray-200 rounded p-4 flex-1 ${
+              isHorizontal ? "" : "w-full"
+            }`}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <Button
+            onClick={() => {
+              if (message.trim()) {
+                handleSendClientEvent();
+              }
+            }}
+            icon={<MessageSquare height={16} />}
+            className={`flex min-w-[135px] ${
+              isHorizontal ? "flex-[0.2]" : "flex-[0.25]"
+            } items-center justify-center bg-blue-400 ${
+              isHorizontal ? "max-h-1" : "w-full"
+            }`}
+          >
+            send text
+          </Button>
+        </div>
+      )}
       <Button
         className={`flex items-enter justify-center bg-red-800 ${
-          isHorizontal ? "" : "w-full"
+          isHorizontal ? "max-h-1" : "w-full"
         }`}
         onClick={stopSession}
         icon={<CloudOff height={16} />}
@@ -98,7 +105,10 @@ const SessionActive = ({ orientation = "horizontal" }) => {
   );
 };
 
-const SessionControls = ({ orientation = "horizontal" }) => {
+const SessionControls = ({
+  orientation = "horizontal",
+  includeTextMessages = true,
+}) => {
   const { isSessionActive, playbookIds = [] } = useConversationSession();
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownUp, setIsDropdownUp] = useState(false);
@@ -117,7 +127,10 @@ const SessionControls = ({ orientation = "horizontal" }) => {
   return (
     <div className="relative h-full" ref={containerRef}>
       {isSessionActive ? (
-        <SessionActive orientation={orientation} />
+        <SessionActive
+          orientation={orientation}
+          includeTextMessages={includeTextMessages}
+        />
       ) : playbookIds.length > 0 ? (
         <div
           className="relative flex items-center justify-center w-fit h-full self-center mx-auto"
@@ -130,7 +143,7 @@ const SessionControls = ({ orientation = "horizontal" }) => {
           <div
             className={`absolute left-0 right-0 mx-auto w-max bg-white border border-gray-200 rounded shadow-lg transition-opacity duration-300 ${
               isHovered ? "opacity-100 visible" : "opacity-0 invisible"
-            } ${isDropdownUp ? "bottom-full" : "top-full"}`}
+            } ${isDropdownUp ? "bottom-full" : "top-full"} z-50`}
           >
             <ul className="flex flex-col gap-2 p-2">
               {playbookIds.map((playbookId) => (

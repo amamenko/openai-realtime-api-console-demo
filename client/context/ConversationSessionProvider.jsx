@@ -33,6 +33,8 @@ export const ConversationSessionProvider = ({
   setConversationState,
   setLiveTranscript,
   liveTranscript,
+  isUserSpeaking,
+  isAgentSpeaking,
   children,
 }) => {
   return (
@@ -59,6 +61,8 @@ export const ConversationSessionProvider = ({
         setConversationState,
         setLiveTranscript,
         liveTranscript,
+        isUserSpeaking,
+        isAgentSpeaking,
       }}
     >
       {children}
