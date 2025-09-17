@@ -14,16 +14,18 @@ export default function App() {
 
   // Ask Wanda Modal UI state
   const [conversationState, setConversationState] = useState("idle");
-  const [liveTranscript, setLiveTranscript] = useState("");
+  const [transcript, setTranscript] = useState([]);
   const [isWandaModalOpen, setIsWandaModalOpen] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
 
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
   const micVisualizerRef = useRef(null);
   const agentVisualizerRef = useRef(null);
   const audioContextRef = useRef(null);
+  const localStreamRef = useRef(null);
   const toolCallsRef = useRef({}); // { [call_id]: { name, args: string } }
 
   // Debounce timers
@@ -97,8 +99,8 @@ export default function App() {
 
     // Create the gradient outside the draw loop for performance
     const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "#5A67D8");
-    gradient.addColorStop(1, "#9F7AEA");
+    gradient.addColorStop(0, "#5b87e2");
+    gradient.addColorStop(1, "#a546d1");
 
     const draw = () => {
       if (
@@ -144,7 +146,7 @@ export default function App() {
     // Stop any existing session before starting a new one
     if (peerConnection.current || dataChannel) stopSession();
 
-    setLiveTranscript("");
+    setTranscript([]);
     setConversationState("idle");
 
     const url = playbookId
@@ -205,6 +207,7 @@ export default function App() {
         autoGainControl: true,
       },
     });
+    localStreamRef.current = ms; // for muting/unmuting later
     const [track] = ms.getAudioTracks();
     pc.addTrack(track, ms);
 
@@ -286,8 +289,15 @@ export default function App() {
       if (audioElement.current) {
         audioElement.current.srcObject = null;
       }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
+      }
+      setIsMicMuted(false);
       setIsUserSpeaking(false);
       setIsAgentSpeaking(false);
+      setTranscript([]);
+      setConversationState("idle");
       clearTimeout(userSpeakingTimeout.current);
       clearTimeout(userSilenceTimeout.current);
       clearTimeout(agentSpeakingTimeout.current);
@@ -344,6 +354,32 @@ export default function App() {
     });
   };
 
+  const muteMicrophone = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+      setIsMicMuted(true);
+    }
+  };
+
+  const unmuteMicrophone = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      setIsMicMuted(false);
+    }
+  };
+
+  const toggleMicrophone = () => {
+    if (isMicMuted) {
+      unmuteMicrophone();
+    } else {
+      muteMicrophone();
+    }
+  };
+
   return (
     <ConversationSessionProvider
       startSession={startSession}
@@ -363,12 +399,16 @@ export default function App() {
       talentIqDictionaryToc={talentIqDictionaryToc}
       conversationState={conversationState}
       setConversationState={setConversationState}
-      liveTranscript={liveTranscript}
-      setLiveTranscript={setLiveTranscript}
+      transcript={transcript}
+      setTranscript={setTranscript}
       isWandaModalOpen={isWandaModalOpen}
       setIsWandaModalOpen={setIsWandaModalOpen}
       isUserSpeaking={isUserSpeaking}
       isAgentSpeaking={isAgentSpeaking}
+      muteMicrophone={muteMicrophone}
+      unmuteMicrophone={unmuteMicrophone}
+      toggleMicrophone={toggleMicrophone}
+      isMicMuted={isMicMuted}
     >
       <audio
         ref={audioElement}

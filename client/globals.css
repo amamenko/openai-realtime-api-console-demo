@@ -8,6 +8,16 @@
   }
 }
 
+@keyframes animate-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @keyframes fade-in-out {
   0% {
     opacity: 0;
@@ -17,10 +27,20 @@
   }
 }
 
+@keyframes cursor-blink {
+  0% {
+    opacity: 0;
+  }
+}
+
 .animate-fade-in-out {
   animation: fade-in-out 2s ease-in-out forwards;
 }
 
 .animate-pulse-scale {
   animation: pulse-scale 1.2s ease-in-out infinite;
+}
+
+.cursor-blink {
+  animation: cursor-blink 1.5s steps(2) infinite;
 }

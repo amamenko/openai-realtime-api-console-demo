@@ -3,10 +3,14 @@ import logo from "/assets/openai-logomark.svg";
 import { useConversationSession } from "../context/ConversationSessionProvider";
 
 const Header = () => {
-  const { isWandaModalOpen, setIsWandaModalOpen } = useConversationSession();
+  const { isWandaModalOpen, setIsWandaModalOpen, startSession } =
+    useConversationSession();
 
   const handleOpenWandaModal = () => {
-    if (!isWandaModalOpen) setIsWandaModalOpen(true);
+    if (!isWandaModalOpen) {
+      setIsWandaModalOpen(true);
+      startSession("chad_playbook");
+    }
   };
 
   return (

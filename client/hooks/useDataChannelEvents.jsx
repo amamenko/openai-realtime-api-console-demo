@@ -13,12 +13,16 @@ export const useDataChannelEvents = () => {
     selectedPlaybookId,
     playbookContent,
     talentIqDictionaryToc,
-    setLiveTranscript,
+    transcript,
+    setTranscript,
     setConversationState,
   } = useConversationSession();
 
   useEffect(() => {
     if (!dataChannel) return;
+
+    // Buffers for user mic transcripts and assistant transcripts
+    const userTranscriptBuffers = {};
 
     const callServerTool = async (name, args) => {
       switch (name) {
@@ -56,13 +60,18 @@ export const useDataChannelEvents = () => {
         session: {
           modalities: ["audio", "text"],
           turn_detection: {
-            type: "server_vad",
-            create_response: true,
+            type: "semantic_vad",
+            eagerness: "medium",
+            create_response: false,
             interrupt_response: true,
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 350,
           },
+          input_audio_transcription: {
+            model: "gpt-4o-mini-transcribe",
+            language: "en",
+            prompt: "",
+          },
+          // Prefer near-field noise reduction for headset/mic usage
+          input_audio_noise_reduction: { type: "near_field" },
         },
       });
 
@@ -152,17 +161,91 @@ export const useDataChannelEvents = () => {
       const evt = JSON.parse(e.data);
       evt.timestamp = evt.timestamp || new Date().toLocaleTimeString();
 
-      // Handle message types (live transcript)
-      if (evt.type === "response.audio_transcript.delta") {
-        setLiveTranscript((prev) => prev + evt.delta);
+      // User mic transcription handling
+      if (evt.type === "conversation.item.input_audio_transcription.delta") {
+        userTranscriptBuffers[evt.item_id] =
+          (userTranscriptBuffers[evt.item_id] || "") + evt.delta;
+
+        setTranscript((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "user" && !last.final) {
+            // update streaming user text
+            return [
+              ...prev.slice(0, -1),
+              { ...last, text: userTranscriptBuffers[evt.item_id] },
+            ];
+          }
+          // start a new user message
+          return [...prev, { role: "user", text: evt.delta, final: false }];
+        });
       }
+
+      if (
+        evt.type === "conversation.item.input_audio_transcription.completed"
+      ) {
+        const finalUserText =
+          typeof evt.transcript === "string" && evt.transcript.length > 0
+            ? evt.transcript
+            : userTranscriptBuffers[evt.item_id] || "";
+
+        if (finalUserText) {
+          setTranscript((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.role === "user" && !last.final) {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, text: finalUserText, final: true },
+              ];
+            }
+            return [
+              ...prev,
+              { role: "user", text: finalUserText, final: true },
+            ];
+          });
+          sendClientEvent({
+            type: "response.create",
+            response: { modalities: ["audio", "text"] },
+          });
+        }
+        delete userTranscriptBuffers[evt.item_id];
+      }
+
+      // Handle assistant live transcript
+      if (evt.type === "response.audio_transcript.delta") {
+        setTranscript((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && !last.final) {
+            return [
+              ...prev.slice(0, -1),
+              { ...last, text: last.text + evt.delta },
+            ];
+          }
+          // start a new assistant message
+          return [
+            ...prev,
+            { role: "assistant", text: evt.delta, final: false },
+          ];
+        });
+      }
+
       if (evt.type === "response.audio_transcript.done") {
-        setLiveTranscript(evt.transcript);
+        const finalText =
+          typeof evt.transcript === "string" ? evt.transcript : "";
+
+        setTranscript((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "assistant" && !last.final) {
+            return [
+              ...prev.slice(0, -1),
+              { ...last, text: finalText, final: true },
+            ];
+          }
+          return [...prev, { role: "assistant", text: finalText, final: true }];
+        });
       }
 
       if (evt.type === "response.created") {
         setConversationState("thinking");
-        setLiveTranscript("");
       }
 
       if (evt.type === "output_audio_buffer.started") {
@@ -275,7 +358,8 @@ export const useDataChannelEvents = () => {
     setEvents,
     setIsSessionActive,
     toolCallsRef,
-    setLiveTranscript,
+    transcript,
+    setTranscript,
     setConversationState,
   ]);
 };

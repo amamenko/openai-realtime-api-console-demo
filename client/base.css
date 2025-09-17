@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css?family=Cabin:400,700|Varela|Average");
 /*
 @tailwind base; adds base styles to all elements:
 https://tailwindcss.com/docs/preflight
@@ -11,14 +12,41 @@ https://tailwindcss.com/docs/preflight
   --color-highlight: #ff80ff;
 }
 
-html,
 body {
-  height: 100%;
-  width: 100%;
   margin: 0;
-  padding: 0;
-  overflow: hidden;
-  font-family: "Consolas", "Andale Mono", monospace;
-  font-size: 0.9rem;
-  background-color: var(--color-base);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0px 0px 0px 0px;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+@media print {
+  html,
+  body {
+    height: auto;
+  }
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea,
+.pure-g,
+.pure-g [class*="pure-u"] {
+  font-family: "Cabin";
+  font-weight: 400;
+}
+
+p {
+  font-family: "Average";
+  font-weight: 400;
 }

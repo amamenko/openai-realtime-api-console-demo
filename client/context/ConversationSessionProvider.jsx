@@ -31,10 +31,14 @@ export const ConversationSessionProvider = ({
   setIsWandaModalOpen,
   conversationState,
   setConversationState,
-  setLiveTranscript,
-  liveTranscript,
+  setTranscript,
+  transcript,
   isUserSpeaking,
   isAgentSpeaking,
+  muteMicrophone,
+  unmuteMicrophone,
+  toggleMicrophone,
+  isMicMuted,
   children,
 }) => {
   return (
@@ -59,10 +63,14 @@ export const ConversationSessionProvider = ({
         setIsWandaModalOpen,
         conversationState,
         setConversationState,
-        setLiveTranscript,
-        liveTranscript,
+        setTranscript,
+        transcript,
         isUserSpeaking,
         isAgentSpeaking,
+        muteMicrophone,
+        unmuteMicrophone,
+        toggleMicrophone,
+        isMicMuted,
       }}
     >
       {children}
