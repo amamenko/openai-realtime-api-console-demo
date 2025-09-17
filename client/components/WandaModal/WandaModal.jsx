@@ -1,16 +1,14 @@
-import React, { forwardRef, useEffect, useRef } from "react";
-import { useConversationSession } from "../context/ConversationSessionProvider";
-import SessionControls from "./SessionControls";
-import AuctusIQLogo from "../assets/auctusiq-logo.png";
+import React, { forwardRef, useRef } from "react";
+import { useConversationSession } from "../../context/ConversationSessionProvider";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
-import useOutsideClick from "../hooks/useOutsideClick";
+import useOutsideClick from "../../hooks/useOutsideClick";
+import ConversationTranscript from "./ConversationTranscript";
 
 const WandaModal = forwardRef(
   ({ micVisualizerRef, agentVisualizerRef }, ref) => {
     const {
       isSessionActive,
       conversationState,
-      transcript,
       setTranscript,
       setConversationState,
       isWandaModalOpen,
@@ -22,15 +20,7 @@ const WandaModal = forwardRef(
       isMicMuted,
     } = useConversationSession();
 
-    const scrollRef = useRef(null);
-    const bottomRef = useRef(null);
     const modalRef = useRef(null);
-
-    // Scroll to bottom whenever transcript updates
-    useEffect(() => {
-      if (bottomRef.current)
-        bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }, [transcript]);
 
     const handleCloseWandaModal = () => {
       setIsWandaModalOpen(false);
@@ -44,10 +34,6 @@ const WandaModal = forwardRef(
     if (!isWandaModalOpen) return null;
 
     const isWandaListening = isUserSpeaking && isSessionActive;
-
-    const AuctusIQLogoImage = () => {
-      return <img className="w-1/4 pb-2" src={AuctusIQLogo} />;
-    };
 
     const StateText = () => {
       if (isUserSpeaking) return "Listening...";
@@ -162,51 +148,7 @@ const WandaModal = forwardRef(
                 </button>
               </div>
             </div>
-
-            <div
-              className="col-span-4 h-full w-full px-6 bg-white overflow-hidden transition-opacity duration-500 ease-in-out overflow-y-auto"
-              ref={scrollRef}
-            >
-              {transcript.length === 0 ? (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-y-6">
-                  <AuctusIQLogoImage />
-                  <h2 className="text-2xl font-semibold">
-                    Start a conversation with Wanda
-                  </h2>
-                </div>
-              ) : (
-                <div className="w-full h-full flex flex-col gap-y-6">
-                  {transcript.map((entry, index) => {
-                    const isUser = entry.role === "user";
-                    return (
-                      <div
-                        key={index}
-                        className={`max-w-[90%] rounded-lg p-2 ${
-                          isUser
-                            ? "bg-black text-white self-end italic"
-                            : "bg-white self-start"
-                        }`}
-                      >
-                        <span className="whitespace-pre-wrap inline-block leading-5">
-                          {entry.text}
-                          {!entry.final && (
-                            <span
-                              className={`cursor-blink ${
-                                isUser ? "text-white" : "text-black"
-                              }`}
-                            >
-                              |
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {/* dummy element to scroll into view */}
-                  <div ref={bottomRef} />
-                </div>
-              )}
-            </div>
+            <ConversationTranscript />
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import SessionControls from "./SessionControls";
 import EventLog from "./EventLog";
 import { useDataChannelEvents } from "../hooks/useDataChannelEvents";
-import WandaModal from "./WandaModal";
+import WandaModal from "./WandaModal/WandaModal";
 // import ToolPanel from "./ToolPanel";
 
 const ConversationBody = forwardRef(

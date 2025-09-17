@@ -333,6 +333,12 @@ export default function App() {
 
   // Send a text message to the model
   const sendTextMessage = (message) => {
+    // If the agent is currently speaking, cancel its response first
+    if (isAgentSpeaking) {
+      sendClientEvent({ type: "response.cancel" });
+      setIsAgentSpeaking(false);
+    }
+
     const event = {
       type: "conversation.item.create",
       item: {
