@@ -20,65 +20,6 @@ const vite = await createViteServer({
 });
 app.use(vite.middlewares);
 
-// Function call proxy route
-app.get("/get_talentiq_dictionary_toc", async (req, res) => {
-  try {
-    const toc = await getTalentIqDictionaryToc();
-    res.json(toc);
-  } catch (error) {
-    console.error(
-      "Error fetching function call get_talentiq_dictionary_toc:",
-      error,
-    );
-    res.status(500).json({
-      error: "Failed to fetch function call get_talentiq_dictionary_toc",
-    });
-  }
-});
-
-// Function call proxy route
-app.get("/get_talentiq_dictionary_section", async (req, res) => {
-  const { section_id } = req.query || {};
-  if (!section_id) {
-    return res.status(400).json({ error: "Section ID is required" });
-  }
-  try {
-    const section = await getTalentIqDictionarySection(section_id);
-    res.json(section);
-  } catch (error) {
-    console.error(
-      "Error fetching function call get_talentiq_dictionary_section:",
-      error,
-    );
-    res.status(500).json({
-      error: "Failed to fetch function call get_talentiq_dictionary_section",
-    });
-  }
-});
-
-app.get("/sys_prompt_functions", async (req, res) => {
-  const sysPromptFunctions = (await getSystemPromptFunctions()) || {
-    system_prompt:
-      "You are a helpful AI assistant. Please follow the user's instructions.",
-  };
-
-  res.json(sysPromptFunctions);
-});
-
-app.get("/playbooks", async (req, res) => {
-  const playbooks = await getPlaybooks();
-  res.json(playbooks);
-});
-
-app.get("/playbook/:id", async (req, res) => {
-  const playbookId = req.params.id;
-  if (!playbookId)
-    return res.status(400).json({ error: "Playbook ID is required" });
-
-  const playbook = await getPlaybook(playbookId);
-  res.json(playbook);
-});
-
 // API route for token generation
 app.get("/token", async (req, res) => {
   const response = await axios
@@ -106,6 +47,68 @@ app.get("/token", async (req, res) => {
     });
 
   res.json(response);
+});
+
+// Seed
+app.get("/get_talentiq_dictionary_toc", async (req, res) => {
+  try {
+    const toc = await getTalentIqDictionaryToc();
+    res.json(toc);
+  } catch (error) {
+    console.error(
+      "Error fetching function call get_talentiq_dictionary_toc:",
+      error,
+    );
+    res.status(500).json({
+      error: "Failed to fetch function call get_talentiq_dictionary_toc",
+    });
+  }
+});
+
+// Seed
+app.get("/sys_prompt_functions", async (req, res) => {
+  const sysPromptFunctions = (await getSystemPromptFunctions()) || {
+    system_prompt:
+      "You are a helpful AI assistant. Please follow the user's instructions.",
+  };
+
+  res.json(sysPromptFunctions);
+});
+
+// Function call proxy route
+app.get("/get_talentiq_dictionary_section", async (req, res) => {
+  const { section_id } = req.query || {};
+  if (!section_id) {
+    return res.status(400).json({ error: "Section ID is required" });
+  }
+  try {
+    const section = await getTalentIqDictionarySection(section_id);
+    res.json(section);
+  } catch (error) {
+    console.error(
+      "Error fetching function call get_talentiq_dictionary_section:",
+      error,
+    );
+    res.status(500).json({
+      error: "Failed to fetch function call get_talentiq_dictionary_section",
+    });
+  }
+});
+
+// Going away
+app.get("/playbooks", async (req, res) => {
+  const playbooks = await getPlaybooks();
+  res.json(playbooks);
+});
+
+// Going away
+app.get("/playbook/:id", async (req, res) => {
+  const playbookId = req.params.id;
+  if (!playbookId)
+    return res.status(400).json({ error: "Playbook ID is required" });
+
+  const playbook = await getPlaybook(playbookId);
+  res.json(playbook);
 });
 
 // Render the React client

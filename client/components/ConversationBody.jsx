@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import SessionControls from "./SessionControls";
 import EventLog from "./EventLog";
 import { useDataChannelEvents } from "../hooks/useDataChannelEvents";
-import WandaModal from "./WandaModal/WandaModal";
+import WandaModal from "./WandaModal/Main/WandaModal";
 // import ToolPanel from "./ToolPanel";
 
 const ConversationBody = forwardRef(
@@ -15,7 +15,7 @@ const ConversationBody = forwardRef(
           micVisualizerRef={micVisualizerRef}
           agentVisualizerRef={agentVisualizerRef}
         />
-        <main className="absolute top-16 left-0 right-0 bottom-0">
+        <main className="absolute top-16 left-0 right-0 bottom-0 h-[calc(100%-4rem)] max-h-[calc(100%-4rem)] overflow-hidden">
           <section className="absolute top-0 left-0 right-0 bottom-0 flex">
             <section className="absolute top-0 left-0 right-0 bottom-32 px-4 overflow-y-auto">
               <EventLog />
